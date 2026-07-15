@@ -1,4 +1,5 @@
 import type { MarketApp, Registry } from "./types.js";
+import { expandRequires } from "./authoring.js";
 import { validateComposition, type ValidationIssue } from "./validate.js";
 import { resolvePage, type ResolvedPage, type BindingResolver } from "./resolve.js";
 import { defaultResolveBinding } from "./resolver.js";
@@ -41,7 +42,8 @@ export async function composePage({
   registry: Registry<any>;
   resolveBinding?: BindingResolver;
 }): Promise<ComposedPage> {
-  const result = validateComposition(app, registry);
+  const expanded = expandRequires(app, registry);
+  const result = validateComposition(expanded, registry);
   if (!result.ok) throw new CompositionError(result.issues);
 
   const [page, appData] = await Promise.all([
@@ -65,7 +67,11 @@ async function resolveAppData(
   return resolved;
 }
 
-/** The routes a market defines — apps use this to wire their router / decide availability. */
-export function marketRoutes(app: MarketApp): string[] {
-  return app.pages.map((page) => page.path);
+/**
+ * The routes a market defines. Pass `registry` to include pages auto-expanded from `requires`
+ * declarations — callers that guard navigation (routers, route checks) should always pass it.
+ */
+export function marketRoutes(app: MarketApp, registry?: Registry<any>): string[] {
+  const expanded = registry ? expandRequires(app, registry) : app;
+  return expanded.pages.map((page) => page.path);
 }

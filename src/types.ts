@@ -54,6 +54,13 @@ export type MarketApp = {
 };
 
 /**
+ * Declares that a block requires sibling pages to be mounted alongside it. When a block with
+ * `requires` is placed on a page at `basePath`, the engine automatically mounts each required
+ * block at `basePath + subPath` — the market config only needs to declare the root block.
+ */
+export type BlockRequires = { blockId: string; subPath: string };
+
+/**
  * A block definition in a registry. The `component` is PLATFORM-SPECIFIC (a React DOM
  * component on web, a React Native component on mobile) — hence generic. The engine never
  * touches it beyond passing it through to the platform renderer.
@@ -62,6 +69,7 @@ export type BlockDefinition<TComponent = unknown> = {
   id: string;
   configSchema: ZodType;
   component: TComponent;
+  requires?: BlockRequires[];
 };
 
 /** Per-platform registry. Blocks self-register into it. */

@@ -4,6 +4,8 @@ import type {
   DataBinding,
   EnvRef,
   MarketApp,
+  Page,
+  Registry,
 } from "./types.js";
 
 /**
@@ -40,4 +42,30 @@ export const bind = {
 /** Reference an env var without inlining its value. Resolved at load. */
 export function env(name: string): EnvRef {
   return { $env: name };
+}
+
+/**
+ * Expand `requires` declarations: for every block in `app` that has `requires` entries in the
+ * registry, auto-mount the required blocks at `basePath + subPath`. Pages already declared in
+ * `app` are never overridden. This is what lets a market config declare only `draw/select` at
+ * `/draws` and get `/draws/confirm` and `/draws/success` for free.
+ */
+export function expandRequires(app: MarketApp, registry: Registry): MarketApp {
+  const extra: Page[] = [];
+  const allPaths = new Set(app.pages.map((p) => p.path));
+
+  for (const page of app.pages) {
+    for (const inst of page.blocks) {
+      const def = registry.get(inst.blockId);
+      if (!def?.requires) continue;
+      for (const req of def.requires) {
+        const path = `${page.path}${req.subPath}`;
+        if (allPaths.has(path)) continue;
+        allPaths.add(path);
+        extra.push({ path, blocks: [{ blockId: req.blockId, config: {}, bindings: {} }] });
+      }
+    }
+  }
+
+  return extra.length ? { ...app, pages: [...app.pages, ...extra] } : app;
 }

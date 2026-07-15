@@ -1,7 +1,7 @@
 // omazifier — composer engine + config builder. Framework-agnostic (no React import).
 
 export * from "./types.js";
-export * from "./authoring.js";
+export { defineMarketApp, block, bind, env, expandRequires } from "./authoring.js";
 export {
   CURRENT_SCHEMA_VERSION,
   marketAppSchema,
