@@ -42,13 +42,14 @@ export async function composePage({
   registry: Registry<any>;
   resolveBinding?: BindingResolver;
 }): Promise<ComposedPage> {
-  const expanded = expandRequires(app, registry);
-  const result = validateComposition(expanded, registry);
+  const result = validateComposition(app, registry);
   if (!result.ok) throw new CompositionError(result.issues);
 
+  const expanded = expandRequires(result.app, registry);
+
   const [page, appData] = await Promise.all([
-    resolvePage(result.app, path, { registry, resolveBinding }),
-    resolveAppData(result.app, resolveBinding),
+    resolvePage(expanded, path, { registry, resolveBinding }),
+    resolveAppData(expanded, resolveBinding),
   ]);
   return { page, appData };
 }
