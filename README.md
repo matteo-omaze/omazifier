@@ -26,7 +26,7 @@ MarketApp (composition file)        Registry (platform block library)
 | `MarketApp` | The full per-market composition — pure serialisable data, no imports |
 | `BlockInstance` | One block placed on a page: `{ blockId, config, bindings }` |
 | `Page` | One route: `{ path, blocks[] }` |
-| `BlockDefinition` | Registry entry: `{ id, configSchema, component, requires? }` |
+| `BlockDefinition` | Registry entry: `{ id, configSchema, component, requires?, private? }` |
 | `BlockRequires` | A sibling page to auto-mount: `{ blockId, subPath }` |
 | `DataBinding` | Where to fetch data: `bff(request)`, `sanity(key)`, or `translations()` |
 
@@ -76,11 +76,13 @@ Pages already declared in the composition are never overridden.
 
 ```
 defineMarketApp(file)
-  └── expandRequires(app, registry)   ← adds required sibling pages
-        └── validateComposition(...)  ← checks block ids + per-block config schemas
-              └── composePage(...)    ← fetches bindings, returns resolved block tree
-                    └── renderBlocks(...)  ← platform-specific render (web or RN)
+  └── validateComposition(original app, registry)  ← checks block ids, private violations, config schemas
+        └── expandRequires(app, registry)          ← adds required sibling pages
+              └── composePage(...)                 ← fetches bindings, returns resolved block tree
+                    └── renderBlocks(...)          ← platform-specific render (web or RN)
 ```
+
+Validation runs on the **original** market file before expansion — so private blocks that the engine mounts automatically are never seen by the private-block check.
 
 `composePage` is the main entry point. It runs the whole pipeline for one path:
 
@@ -115,7 +117,7 @@ The binding resolver handles both per-block bindings (`bind.bff(...)`) and app-l
 
 `validateComposition` runs two passes:
 1. Structural: the `MarketApp` shape against `marketAppSchema` (Zod).
-2. Semantic: every `blockId` must exist in the registry; every block's `config` must pass its `configSchema`.
+2. Semantic: every `blockId` must exist in the registry; blocks marked `private: true` are rejected if placed directly in a market file (they may only be mounted via `requires`); every block's `config` must pass its `configSchema`.
 
 Errors surface with precise paths (`pages[2].blocks[0].config.provider`).
 
