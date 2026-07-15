@@ -70,6 +70,9 @@ export type BlockDefinition<TComponent = unknown> = {
   configSchema: ZodType;
   component: TComponent;
   requires?: BlockRequires[];
+  /** When true, this block cannot be placed directly in a market config — it may only be
+   *  mounted by the engine via another block's `requires`. Validation rejects direct placement. */
+  private?: boolean;
 };
 
 /** Per-platform registry. Blocks self-register into it. */

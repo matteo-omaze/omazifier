@@ -46,6 +46,13 @@ export function validateComposition(
         });
         return;
       }
+      if (def.private) {
+        issues.push({
+          path: `${base}.blockId`,
+          message: `Block "${instance.blockId}" is private and cannot be placed directly in a market config — it is only mountable via another block's requires.`,
+        });
+        return;
+      }
       const cfg = def.configSchema.safeParse(instance.config);
       if (!cfg.success) {
         for (const issue of cfg.error.issues) {
