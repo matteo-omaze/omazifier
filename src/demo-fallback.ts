@@ -11,6 +11,10 @@ const FALLBACK = {
   offers: {
     uk: {
       currency: "GBP",
+      campaigns: [
+        { id: "house", imageUrl: "http://localhost:4000/assets/Hero.webp", tagKey: "hero.tag", headingKey: "hero.heading", ctaLabelKey: "offerGrid.cta", ctaPath: "/draws" },
+        { id: "monthly", imageUrl: "http://localhost:4000/assets/MonthlyMillionaire.webp", tagKey: "hero.tag", headingKey: "campaign.monthly.heading", ctaLabelKey: "offerGrid.cta", ctaPath: "/draws" },
+      ],
       offers: [
         { id: "uk-1", entries: 15, price: 1000, wasPrice: 2000, ribbon: "offerGrid.ribbon.twoForOne", checkoutUrl: "https://omaze.co.uk/cart/uk-1" },
         { id: "uk-2", entries: 40, price: 2500, wasPrice: null, ribbon: "offerGrid.ribbon.mostPopular", checkoutUrl: "https://omaze.co.uk/cart/uk-2" },
@@ -19,13 +23,16 @@ const FALLBACK = {
     },
     de: {
       currency: "EUR",
+      campaigns: [
+        { id: "house", imageUrl: "http://localhost:4000/assets/Frankfurt.webp", tagKey: "hero.tag", headingKey: "hero.heading", ctaLabelKey: "offerGrid.cta", ctaPath: "/draws" },
+      ],
       offers: [
         { id: "de-1", entries: 15, price: 1200, wasPrice: 2400, ribbon: "offerGrid.ribbon.twoForOne", checkoutUrl: "https://omaze.de/cart/de-1" },
         { id: "de-2", entries: 40, price: 3000, wasPrice: null, ribbon: "offerGrid.ribbon.mostPopular", checkoutUrl: "https://omaze.de/cart/de-2" },
         { id: "de-3", entries: 85, price: 6000, wasPrice: null, ribbon: "offerGrid.ribbon.bestValue", checkoutUrl: "https://omaze.de/cart/de-3" },
       ],
     },
-  } as Record<string, { currency: string; offers: unknown[] }>,
+  } as Record<string, { currency: string; campaigns?: unknown[]; offers: unknown[] }>,
   content: {
     uk: { offersFaq: [
       { q: "How do I enter?", a: "Pick an entry bundle, or enter free by post." },
@@ -38,7 +45,8 @@ const FALLBACK = {
   } as Record<string, Record<string, unknown>>,
   translations: {
     uk: {
-      "hero.tag": "London", "hero.heading": "Win this £4,000,000 house in Bath",
+      "hero.tag": "London", "hero.heading": "Win this £4,000,000 house",
+      "hero.headingSub": "in Bath", "hero.cta": "Enter now",
       "hero.subheading": "Plus £250,000 in cash. Enter our live draws now.",
       "nav.offers": "See the offers", "nav.draws": "Enter the draw", "nav.faq": "FAQs", "nav.entry": "How to enter",
       "footer.legal": "Omaze runs prize draws in partnership with registered charities. 18+.",
@@ -59,9 +67,11 @@ const FALLBACK = {
       "openEntry.heading": "Free postal entry", "openEntry.badge": "No purchase necessary",
       "openEntry.body": "You can enter for free by post — no purchase required. Send your details to:",
       "openEntry.postalAddress": "Omaze, PO Box 1234, London, EC1A 1AA",
+      "campaign.monthly.heading": "Win £1,000,000",
     },
     de: {
-      "hero.tag": "Bayern", "hero.heading": "Gewinne dieses Haus in Bayern im Wert von 4.000.000 €",
+      "hero.tag": "Bayern", "hero.heading": "Gewinne dieses Haus im Wert von 4.000.000 €",
+      "hero.headingSub": "in Bayern", "hero.cta": "Jetzt mitmachen",
       "hero.subheading": "Plus 250.000 € in bar. Jetzt an unseren Verlosungen teilnehmen.",
       "nav.offers": "Angebote ansehen", "nav.draws": "Zur Verlosung", "nav.faq": "Häufige Fragen", "nav.entry": "Teilnahme",
       "footer.legal": "Omaze führt Verlosungen mit eingetragenen Wohltätigkeitsorganisationen durch. Ab 18.",
@@ -81,6 +91,7 @@ const FALLBACK = {
       "terms.rules.item2": "Gewinner müssen vor der Übergabe eine Identitätsprüfung abschließen.",
       "verifiedEntry.heading": "Identitätsprüfung erforderlich", "verifiedEntry.badge": "Verifizierung erforderlich",
       "verifiedEntry.body": "Zur Teilnahme ist eine Identitätsprüfung gesetzlich vorgeschrieben. Verfahren: {provider}.",
+      "verifiedEntry.cta": "Identifizierung starten",
       "verifiedEntry.provider.schufa": "SCHUFA-Identitätsprüfung", "verifiedEntry.provider.postident": "PostIdent-Verfahren",
     },
   } as Record<string, Record<string, string>>,

@@ -30,7 +30,7 @@ export function createBindingResolver(sources: Record<string, Endpoints>): Bindi
 const bffUrl = (app: MarketApp) =>
   resolveEnv(app.wiring.bffUrl, {
     BFF_URL:
-      (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.BFF_URL ??
+      (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.BFF_URL ||
       "http://localhost:4000",
   });
 

@@ -113,6 +113,8 @@ Block ids are arbitrary strings — `"draw/select"` is just a string; the slash 
 
 The binding resolver handles both per-block bindings (`bind.bff(...)`) and app-level bindings (`wiring.appData`, e.g. the translation bundle). Both go through the same resolver.
 
+`withOfflineFallback(resolve)` is a DEMO-ONLY export that wraps any resolver: on fetch failure, it returns bundled sample data keyed by market id. The deployed Lambda and the mobile app both use it so the demo works without a live BFF. `BFF_URL` is resolved with `||` (not `??`) — an empty string is treated as absent so the fallback URL kicks in rather than producing a relative-URL parse error.
+
 ## Schema validation
 
 `validateComposition` runs two passes:
@@ -133,8 +135,9 @@ src/
   resolver.ts   — createBindingResolver, defaultResolveBinding
   compose.ts    — composePage, marketRoutes
   render.ts     — renderBlocks (platform-agnostic via createElement)
-  registry.ts   — createRegistry, defineRegistry
-  index.ts      — public exports
+  registry.ts       — createRegistry, defineRegistry
+  demo-fallback.ts  — DEMO ONLY: bundled fallback data + withOfflineFallback
+  index.ts          — public exports
 ```
 
 ## Running

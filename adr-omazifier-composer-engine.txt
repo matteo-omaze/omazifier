@@ -1,0 +1,241 @@
+🎯 Decision in one line:
+  Use a declarative composition engine (omazifier) to define per-market page trees and data
+  bindings once, rather than embedding market-branching logic across shared UI or platform code.
+
+---
+
+CONTEXT
+=======
+
+Problem:
+  - Omaze operates across UK, DE, FR (and growing) with material differences per market:
+    regulatory entry mechanics (open postal vs KYC-verified), currencies and locales,
+    pricing, campaign imagery, FAQ content, and navigation shape. The genuine split is not
+    cosmetic — it is structural (Prize Competitions Act / Glücksspielstaatsvertrag / French
+    prize-draw law each mandate different /entry blocks).
+  - Mobile (React Native/Expo) and web (Next.js) both need to express the same per-market
+    composition without duplicating the logic or forking the block library.
+  - Historically: separate per-market repos or branches → drift, duplicated fixes, no single
+    place to reason about "what does the UK app render?"
+    [Link: git log in omazifier-demo showing pre-engine infra commits]
+  - Adding a market currently requires coordinating changes across multiple repos, CI pipelines,
+    and deployment targets. The France branch (feat/france in omazifier-demo) demonstrates the
+    target end-state: 8 files, no shared code touched.
+    [Link: github.com/matteo-omaze/omazifier-demo/compare/main...feat/france]
+
+Goals:
+  - Zero market conditionals inside block components (no `if market.id === 'de'` in JSX/RN).
+  - Adding a market = one omazifier/markets/<code>.ts file + BFF data. Nothing else.
+  - Shared block library stays framework-typed (React / React Native) but market-agnostic.
+  - Works identically for web (Next.js MARKET= build alias) and mobile (RN runtime registry).
+  - The composition file is the single source of truth for page structure, block order, data
+    bindings, and which regulatory variant (/entry) a market uses.
+
+Constraints:
+  - Must support both Next.js App Router (web) and Expo SDK 54 new-arch (mobile) without
+    a shared runtime — the engine itself is framework-agnostic (no React import).
+  - Translations, BFF data, and Sanity content are fetched at runtime/build time; the engine
+    must not couple to any specific fetcher.
+  - UK/DE are live markets with existing CI/CD; any new abstraction must not disrupt them.
+  - [Note: check with platform-wallet CI/CD pattern for consistency — see CLAUDE.md ref]
+  - No monorepo tooling lock-in (currently npm workspaces, no Nx/Turborepo requirement).
+
+Assumptions:
+  - Market composition (which blocks appear on which pages) changes infrequently relative to
+    block-level content/design changes.
+  - All markets share the same block vocabulary — a new market never needs a net-new block
+    that isn't already in the shared registry.
+  - Per-market builds (one deployable per market) are acceptable and match existing infra
+    (offers-uk / offers-de as separate Shopify/Next apps).
+  - [Note: confirm with platform team — do we actually deploy separate Next.js builds or
+    is there a single multi-market app behind routing?]
+
+---
+
+OPTIONS
+=======
+
+0. DO NOTHING / STATUS QUO
+   Summary: Keep per-market branches or repos; copy-paste components across markets.
+   Pros:
+     - No new abstraction to learn or maintain.
+     - Works today for 2 markets.
+   Cons / risks:
+     - Bug fixes and design changes must be applied N times (N = number of markets).
+     - No enforceable guarantee that markets are structurally consistent.
+     - Adding FR, IT, US each requires a fork and its own CI pipeline.
+     - Market-specific regulatory logic leaks into shared components over time.
+
+1. SINGLE CODEBASE WITH MARKET CONDITIONALS
+   Summary: One repo, one build; components branch on `market.id` or feature flags.
+     e.g. `if (market.id === 'de') return <VerifiedEntry />`
+   Pros:
+     - Familiar pattern; no new engine layer.
+     - Single deployment artifact (easier ops at small scale).
+   Cons / risks:
+     - Regulatory branching pollutes shared UI code — auditing "what does DE render?" requires
+       reading every component.
+     - Conditional debt grows with each new market and each regulatory divergence point.
+     - Cross-market module graph: DE's SCHUFA SDK ends up in the UK build.
+     - Testing surface balloons: every component must be tested for every market combination.
+
+2. OMAZIFIER: DECLARATIVE COMPOSITION ENGINE  [CHOSEN]
+   Summary: A framework-agnostic engine (no React) that takes a market definition file
+     (defineMarketApp) and resolves it to a page tree with data bindings. Each market owns
+     one .ts file; shared blocks own nothing market-specific. Web and mobile each have a thin
+     adapter (webpack alias / RN runtime registry) that feeds the resolved app to their renderer.
+   Pros:
+     - Adding a market = 1 file + BFF data. Proved by feat/france diff (8 files, 0 shared code).
+       [Link: github.com/matteo-omaze/omazifier-demo/compare/main...feat/france]
+     - Block components are unconditionally market-agnostic. Regulatory split is structural
+       (block choice in the composition), not conditional (if/else in JSX).
+     - Cross-market module isolation: DE's verified-entry block never enters the UK build.
+     - Composition file is auditable without reading component code.
+     - Same engine drives web (Next.js) and mobile (Expo) — no duplicated composition logic.
+   Cons / risks:
+     - New abstraction: composePage, renderBlocks, defineMarketApp, bind.* all require
+       onboarding. [Link: omazifier/src — review exported API surface]
+     - If a new market genuinely needs a net-new block, both the engine registry and the block
+       library must be updated — that's more moving parts than a conditional.
+     - Engine versioning: market files pin `version: 1`; a breaking engine change requires
+       migrating all market files simultaneously or running multiple engine versions.
+       [Note: consider semver strategy and migration tooling before v2]
+     - Currently no schema validation on the composition file at CI time — a typo in a block
+       name fails at runtime. [Open question: add registry check to CI?]
+
+---
+
+DECISION
+========
+
+📌 We will:
+  Build and use omazifier as the composition engine for all Omaze markets on web and mobile.
+  Each market is expressed as a single defineMarketApp file (omazifier/markets/<code>.ts).
+  Blocks in the shared registry are unconditionally market-agnostic.
+
+What changes:
+  - Each market has one canonical source-of-truth file declaring its pages, blocks, and bindings.
+  - The mobile app resolves the market at runtime via NSUserDefaults (activeMarket) and a static
+    registry; the web resolves it at build time via webpack alias (MARKET=<code>).
+  - Adding a market: drop omazifier/markets/<code>.ts in both mobile and web, add BFF data,
+    add dev:mobile:<code> and dev:web:<code> scripts. No shared code edited.
+
+What stays the same:
+  - Block components (Hero, OfferGrid, DrawSelect, etc.) are written once and shared.
+  - BFF data shape (offers, translations, content) is unchanged.
+  - Per-market deployment model (separate Next.js build per market) is unchanged.
+
+Interfaces / contracts affected:
+  - omazifier public API: defineMarketApp, block, bind, env, composePage, renderBlocks,
+    marketRoutes, CompositionError. [Link: omazifier/src — pin to tagged release before prod]
+  - active-market module alias convention (web: webpack; mobile: static import map).
+  - BFF endpoints: /offers, /translations — must remain stable (consumed by bind.bff / bind.translations).
+  - [Note: document bind.sanity — currently used for FAQ items; Sanity schema stability TBC]
+
+Rollout plan:
+  - Phase 1 (done): engine + demo harness for UK and DE. [Link: omazifier-demo main branch]
+  - Phase 2: France on feat/france branch — demonstrates the market-addition workflow.
+  - Phase 3: Integrate engine into actual platform repos (platform-wallet? offers-uk/de?).
+    [Note: needs platform team sign-off; check offers-uk architecture first]
+  - No feature toggle needed — new markets are additive; existing market builds are unaffected.
+  - Backout: revert market file + BFF data. Engine changes are backwards-compatible within v1.
+
+Scope:
+  - Services: mock-bff-monorepo (data), mock-mobile-app (Expo), mock-web-monorepo (Next.js).
+  - Teams: currently solo; escalate to platform team before Phase 3.
+  - [Note: does DE KYC path (VerifiedEntry / SCHUFA) need compliance review? Tag legal.]
+
+---
+
+PLAN
+====
+
+  - [ ] Tag omazifier engine at v1.0.0 and publish to npm (internal or public).
+        [Link: omazifier/package.json — currently unpublished]
+  - [ ] Add CI to omazifier repo: lint, type-check, test composePage against fixture market files.
+        [Link: platform-wallet CI as reference — see CLAUDE.md]
+  - [ ] Add composition validation step: at build time, assert all block names in market file
+        exist in the target registry.
+  - [ ] Draft migration guide: how to convert an existing per-market Next.js app to the engine.
+  - [ ] Confirm bind.sanity strategy with CMS team — currently a stub in demo.
+  - [ ] Decide on engine versioning policy before any v2 changes.
+  - [ ] France (feat/france): review + merge when FR launch is confirmed.
+        [Link: github.com/matteo-omaze/omazifier-demo/pull/new/feat/france]
+
+---
+
+OPERATIONAL IMPACT
+==================
+
+Monitoring / alerting:
+  - CompositionError is a typed error surfaced by composePage — should be caught and
+    reported as a 500 in web (currently falls through to Next.js error page).
+  - [Note: add Sentry / equivalent capture for CompositionError in production adapter]
+
+Runbook / on-call:
+  - "Market renders wrong blocks": check omazifier/markets/<code>.ts — is the block name
+    correct? Is the registry entry present? composePage is deterministic given the market file.
+  - "BFF data missing": bind.bff failure surfaces as null data props to blocks — blocks must
+    handle null gracefully (currently done in demo via `if (!payload) return null`).
+
+Data backfills / migrations:
+  - BFF data format (offers, translations) must remain stable across engine versions.
+  - Market file changes (adding a page, reordering blocks) take effect on next deploy — no
+    data migration needed; composition is stateless.
+
+Security:
+  - No credentials in market files or engine — data comes from BFF at runtime.
+  - [Note: review checkoutUrl values in offers/*.json before public repo stays live.
+    Discount codes HO1O1/HO1O2/HO1O3 — confirm these are demo-only, not live Shopify codes.]
+  - KYC flow (DE VerifiedEntry) is currently a no-op CTA. Tag compliance before going live.
+
+Cost considerations:
+  - Per-market Next.js build adds ~1 build per market to CI time. Currently 2 markets = 2 builds.
+    Acceptable at this scale; revisit if markets > 10.
+  - Engine itself is zero-cost at runtime (pure function, no server).
+
+---
+
+OPEN QUESTIONS / PENDING DECISIONS
+====================================
+
+  [ ] Should omazifier be published to npm (internal registry or public)?
+      Currently it's a local workspace package — fine for demo, not for production.
+  [ ] Does bind.sanity need a real implementation, or will content always come via BFF?
+      The FAQ "offersFaq" key currently falls back to null in demo.
+  [ ] Engine versioning strategy: semver with migration guide, or market files stay pinned
+      to a specific engine version (version: 1 field in defineMarketApp suggests the latter)?
+  [ ] Web: single multi-market deployment (routing on domain/subdomain) vs separate builds
+      per market — current demo assumes separate builds. Confirm with platform team.
+  [ ] FR checkout URLs in offers/fr.json — are omaze.fr/cart/... endpoints live or placeholder?
+  [ ] DE KYC CTA ("Identifizierung starten") is a no-op. Who owns the SCHUFA integration?
+  [ ] Should block schema validation (schemas.ts in demo) be part of the engine or remain
+      per-platform? Currently duplicated in mobile and web.
+
+---
+
+APPENDIX
+========
+
+Key files (as of 2026-07-14):
+  - Engine:       github.com/matteo-omaze/omazifier
+  - Demo:         github.com/matteo-omaze/omazifier-demo
+  - France diff:  github.com/matteo-omaze/omazifier-demo/compare/main...feat/france
+  - UK market:    omazifier-demo/mock-mobile-app/omazifier/markets/uk.ts
+  - DE market:    omazifier-demo/mock-mobile-app/omazifier/markets/de.ts
+  - FR market:    omazifier-demo/mock-mobile-app/omazifier/markets/fr.ts (feat/france only)
+  - Web alias:    omazifier-demo/mock-web-monorepo/next.config.ts (MARKET env → webpack alias)
+  - Mobile alias: omazifier-demo/mock-mobile-app/active-market-runtime.ts (NSUserDefaults → static map)
+  - Engine API:   omazifier/src/ — defineMarketApp, block, bind, env, composePage, renderBlocks
+  - Dev scripts:  omazifier-demo/package.json — dev:mobile:uk/de/fr, dev:web:uk/de/fr
+  - iOS multi-sim: omazifier-demo/scripts/dev-ios.sh — NSUserDefaults injection via simctl spawn
+
+Reference architecture:
+  - platform-wallet (CI/CD pattern): github.com/Omaze/platform-wallet
+  - Glücksspielstaatsvertrag (DE): https://www.gluecksspielstaatsvertrag.de/ [expand in Notion]
+  - UK Prize Competitions Act 1976: [expand in Notion]
+  - French prize-draw law (loteries publicitaires): [expand in Notion]
+
+Draft status: rough notes — links, open questions, and legal/compliance sections need
+expansion. Notion internal context (platform architecture, team contacts, compliance docs)
+will fill the gaps.

@@ -8,7 +8,7 @@ export {
   bindingSchema,
   blockInstanceSchema,
 } from "./schema.js";
-export { createRegistry, defineRegistry } from "./registry.js";
+export { createRegistry, defineRegistry, filterRegistry, requiredBlockIds } from "./registry.js";
 export { validateComposition } from "./validate.js";
 export type { ValidationIssue, ValidationResult } from "./validate.js";
 export {
@@ -28,6 +28,9 @@ export { composePage, CompositionError, marketRoutes } from "./compose.js";
 export type { ComposedPage } from "./compose.js";
 export { createBindingResolver, defaultResolveBinding } from "./resolver.js";
 export type { Endpoints } from "./resolver.js";
+
+export { generatePrunedRegistry, parseRegistryManifest } from "./codegen.js";
+export type { ManifestEntry, RegistryManifest } from "./codegen.js";
 
 // ⚠️ DEMO ONLY — TEMPORARY. Remove when the demo apps are retired (see demo-fallback.ts).
 export { withOfflineFallback } from "./demo-fallback.js";
